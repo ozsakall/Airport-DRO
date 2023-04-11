@@ -39,7 +39,7 @@ public class Optimizer {
 				System.out.println("cpu: "+ cpu(System.nanoTime() - sa));
 				tUbound += Sub.objValue[scenario.id] * scenario.probability;
 			}
-			System.out.println("change model cpu: "+cpu(Sub.ch_time));
+			//System.out.println("change model cpu: "+cpu(Sub.ch_time));
 			sTime += System.nanoTime() - startTime;
 
 			//solve separation problem
