@@ -15,14 +15,18 @@ public class data {
 	public static List<Demand> all_demands = new ArrayList<Demand>();
 	public static int numTech;
 	public static int numDemad;
-	public static int TimePeriod = 8640*5;
-	public static int numScenarios = 25;
+	public static int TimePeriod = 6;
+	public static int investmentPeriod = 4;
+	public static int totalInvestment;
+	public static int numScenarios = 2;
 	public static double rds = 0.1;
+	public static Map<String, Integer> key_id = new HashMap<String, Integer>();
 	final public static double alpha = 0;
 	final public static double beta = 1;
 	final public static double effc = 1;
-	final public static double eps =  0.01;
-	final public static double sell_elec =  0.01;
+	final public static double eps =  0.001;
+	final public static double sell_elec =  0.0;
+	final public static double buy_h2 = 50;
 
 	public static class Node{
 		public int id;
@@ -38,12 +42,12 @@ public class data {
 		}
 	}
 	public static class Technology extends Node{
-		public IloNumVar c;
+		public IloNumVar[] c;
 		public double invCost; //investment cost
 		public double oprCost; //operation costz
 		public double lb;
 		public double ub;
-		public Map<Scenario, Double> beta = new HashMap<Scenario, Double>();
+		public Map<Scenario, double[]> beta = new HashMap<Scenario, double[]>();
 		public Technology(ArrayList<Integer> out, ArrayList<Integer> inc, String name, double invcost, double oprcost, double lb, double ub) {
 			super(out, inc, name);
 			this.invCost =  invcost;
@@ -89,17 +93,21 @@ public class data {
 		}
 	}
 	public static void DataRead() {
+		totalInvestment = (int) Math.ceil(1.0 * TimePeriod / investmentPeriod);
 		create_network();
 		create_scenarios();
 	}
 	private static void create_network() {
+		key_id.put("grid", 0);
 		Node grid = new Node(new ArrayList<Integer>(), new ArrayList<Integer>(), "grid");
 		grid.outgoing.add(3);//elect
 		grid.outgoing.add(6);//d1
 		
-		Technology solar = new Technology(new ArrayList<Integer>(), new ArrayList<Integer>(), "solar", 100, 1, 100, 1400);
+		key_id.put("solar", 1);
+		Technology solar = new Technology(new ArrayList<Integer>(), new ArrayList<Integer>(), "solar", 10, 1, 10, 1400);
 		solar.outgoing.add(2);//bss
 		
+		key_id.put("bss", 2);
 		Technology bss = new Technology(new ArrayList<Integer>(), new ArrayList<Integer>(), "bss", 10, 1, 10, 1400); 
 		bss.incoming.add(1);//solar
 		bss.outgoing.add(2);//bss
@@ -107,31 +115,43 @@ public class data {
 		bss.outgoing.add(6);//d1
 		bss.outgoing.add(8);//sell
 		
+		key_id.put("elec", 3);
 		Technology elec = new Technology(new ArrayList<Integer>(), new ArrayList<Integer>(), "electrolyzer", 100, 1, 300, 400);
 		elec.incoming.add(0);//grid
 		elec.incoming.add(2);//bss
 		elec.outgoing.add(4);//hss
 		
+		key_id.put("hss", 4);
 		Technology hss = new Technology(new ArrayList<Integer>(), new ArrayList<Integer>(), "hss", 100, 1, 300, 400);
 		hss.incoming.add(3);//elect
 		hss.outgoing.add(4);//hss
 		hss.outgoing.add(5);//fc
 		
+		key_id.put("fc", 5);
 		Technology fc = new Technology(new ArrayList<Integer>(), new ArrayList<Integer>(), "fc", 100, 1, 300, 400);
 		fc.incoming.add(4);//hss
 		fc.outgoing.add(7);//d2
 
+		key_id.put("d1", 6);
 		Demand d1 = new Demand(new ArrayList<Integer>(), "d1", new double[numScenarios]);
 		d1.incoming.add(0);//grid
 		d1.incoming.add(2);//bss
 		
+		key_id.put("d2", 7);
 		Demand d2 = new Demand(new ArrayList<Integer>(), "d2", new double[numScenarios]);
 		d2.incoming.add(5);//fc
+		d2.incoming.add(9); //h2
 
+		key_id.put("sell", 8);
 		Node sell = new Node(new ArrayList<Integer>(), new ArrayList<Integer>(), "sell");
 		sell.incoming.add(2);//bss
 		
-		Node o2 = new Node(new ArrayList<Integer>(), new ArrayList<Integer>(), "sell");
+		key_id.put("h2", 9);
+		Node h2 = new Node(new ArrayList<Integer>(), new ArrayList<Integer>(), "h2"); 
+		h2.outgoing.add(7); //h2 buyout
+		
+		key_id.put("o2", 10);
+		Node o2 = new Node(new ArrayList<Integer>(), new ArrayList<Integer>(), "o2");
 		o2.incoming.add(2);//bss
 		
 		numDemad = all_demands.size();
@@ -162,7 +182,7 @@ public class data {
 				dem.put(d, (dm));
 				ref_dem.put(d, (dm));
 			}
-			Scenario sc = new Scenario(prob, dem, ref_dem, pv, pv, 1, 1);
+			Scenario sc = new Scenario(prob, dem, ref_dem, pv, pv, 0.1, 0.1);
 		}
 	}
 	public static List<Node> getNodes(){

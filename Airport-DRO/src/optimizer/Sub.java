@@ -9,6 +9,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import javax.xml.crypto.Data;
+
 import data.data;
 
 public class Sub {
@@ -27,8 +29,6 @@ public class Sub {
 	private static IloRange[] row_hss = new IloRange[data.TimePeriod];
 	private static IloRange[] row_fc = new IloRange[data.TimePeriod];
 	private static IloRange[] row_initials = new IloRange[2]; 
-	
-	private static int sell_ind = 8;
 
 	public static double[] alpha = new double[data.numScenarios];
 	
@@ -89,7 +89,13 @@ public class Sub {
 				row_capacity.put(tec, new IloRange[data.TimePeriod]);
 				for(int t = 0; t < data.TimePeriod; t++) {
 					for(Integer out : tec.outgoing) num_expr.addTerm(1.0, f.get(tec).get(out)[t]);
-					row_capacity.get(tec)[t] = SubCplex.addRange(-Double.MAX_VALUE, num_expr, Master.sol_c.get(tec), "tech_cap."+tec.id);	
+					double cap = 0;
+					
+					int period = (int) Math.floor(1.0 * t / data.investmentPeriod);
+
+					for(int i = 0; i <= period; i++) 
+						cap += Master.sol_c.get(tec)[i];
+					row_capacity.get(tec)[t] = SubCplex.addRange(-Double.MAX_VALUE, num_expr, cap, "tech_cap."+tec.id);	
 					num_expr.clear();
 				}
 			}
@@ -128,7 +134,14 @@ public class Sub {
 			for(int t = 0; t < data.TimePeriod; t++) {
 				for(Integer out : solar.outgoing)
 					num_expr.addTerm(1.0, f.get(solar).get(out)[t]);
-				row_solar_factor[t] = SubCplex.addRange(-Double.MAX_VALUE, num_expr,  Master.sol_c.get(solar), "solar_output."+t);
+				
+				double cap = 0;
+				int period = (int) Math.floor(1.0 * t / data.investmentPeriod);
+
+				for(int i = 0; i <= period; i++) 
+					cap += Master.sol_c.get(solar)[i];
+				
+				row_solar_factor[t] = SubCplex.addRange(-Double.MAX_VALUE, num_expr, cap, "solar_output."+t);
 				//row_solar_factor[t] = SubCplex.addEq(num_expr,  Master.sol_c.get(solar), "solar_output."+t);
 				num_expr.clear();
 			}
@@ -277,26 +290,35 @@ public class Sub {
 	public static void change_scenarios(data.Scenario scenario) {
 		try {
 			IloLinearNumExpr num_expr = SubCplex.linearNumExpr();
-			data.Technology solar = data.all_technologies.get(0);
-			double solar_inv = Master.sol_c.get(solar); 
-			data.Node grid = data.all_nodes.get(0);
-			data.Node sell_elec = data.all_nodes.get(sell_ind);
-			int ind = sell_elec.incoming.get(0);
-			data.Node sell_node = data.all_nodes.get(ind );
+			data.Node solar = data.all_nodes.get(data.key_id.get("solar"));
 			
-
+			data.Node grid = data.all_nodes.get(data.key_id.get("grid"));
+			data.Node sell_elec = data.all_nodes.get(data.key_id.get("sell"));
+			int ind = sell_elec.incoming.get(0);
+			data.Node sell_node = data.all_nodes.get(ind);
+			
+			data.Node h2 = data.all_nodes.get(data.key_id.get("h2"));
+			
 			for(int t = 0; t < data.TimePeriod; t++) {
 				//cost
+				num_expr.addTerm(data.buy_h2, f.get(h2).get(h2.outgoing.get(0))[t]);
 				for(Integer out : grid.outgoing)
 					num_expr.addTerm(scenario.electrictyCost, f.get(grid).get(out)[t]);
+				
 				num_expr.addTerm(-data.sell_elec, f.get(sell_node).get(sell_elec.id)[t]);
 				//demand constraint
 				for(data.Demand demnd : data.all_demands) {
 					row_demand.get(demnd)[t].setLB(scenario.demand.get(demnd)[t]);
 				}
 				/* solar output */
-				double bound = solar_inv*scenario.pvFactor[t];
-				row_solar_factor[t].setBounds(-Double.MAX_VALUE, bound);
+				double solar_inv = 0;
+				int period = (int) Math.floor(1.0 * t / data.investmentPeriod);
+
+				for(int i = 0; i <= period; i++) { 
+					solar_inv += Master.sol_c.get(solar)[i];
+					double bound = solar_inv*scenario.pvFactor[t];
+					row_solar_factor[t].setBounds(-Double.MAX_VALUE, bound);
+				}
 			}
 			total_cost.setExpr(num_expr);
 		}
@@ -310,7 +332,13 @@ public class Sub {
 			/*master solution tech cap*/
 			for(data.Technology tec : data.all_technologies) {
 				for(int t = 0; t < data.TimePeriod; t++) {
-					row_capacity.get(tec)[t].setUB(Master.sol_c.get(tec)); 
+					double cap = 0;
+					int period = (int) Math.floor(1.0 * t / data.investmentPeriod);
+
+					for(int i = 0; i <= period; i++) 
+						cap += Master.sol_c.get(tec)[i];
+					
+					row_capacity.get(tec)[t].setUB(cap); 
 				}
 			}
 		}
@@ -334,13 +362,22 @@ public class Sub {
 	private static void calculateBeta(data.Scenario scenario) {
 		try {
 			for(data.Technology tec : data.all_technologies) {
-				double _beta = 0;
-				for(int t = 0; t < data.TimePeriod; t++) {
-					_beta += SubCplex.getDual(row_capacity.get(tec)[t]);
-					if(tec.name == "solar")
-						_beta += scenario.pvFactor[t] * SubCplex.getDual(row_solar_factor[t]);
+				tec.beta.put(scenario, new double[data.totalInvestment]);
+				for(int i = 0; i < data.totalInvestment; i++) {
+					double _beta = 0;
+					int lb = i * data.investmentPeriod;
+					int ub = (i + 1) * data.investmentPeriod;
+					ub = (ub > data.TimePeriod) ? data.TimePeriod : ub;
+
+					for(int t = lb; t < ub; t++) {
+						_beta += SubCplex.getDual(row_capacity.get(tec)[t]);
+						if(tec.name == "solar")
+							_beta += scenario.pvFactor[t] * SubCplex.getDual(row_solar_factor[t]);
+					}
+					tec.beta.get(scenario)[i] = -_beta; 
+					
 				}
-				tec.beta.put(scenario, -_beta);
+				
 			}
 			/*Iterator it = SubCplex.rangeIterator();
 			double obj = 0;
@@ -379,13 +416,13 @@ public class Sub {
 	}
 	public static void check() {
 		try {
-			data.Node sell_elec = data.all_nodes.get(sell_ind);
+			data.Node sell_elec = data.all_nodes.get(data.key_id.get("sell"));
 			int ind = sell_elec.incoming.get(0);
 			data.Node sell_node = data.all_nodes.get(ind );
 			data.Technology bss = data.all_technologies.get(1);
 			
 			for(int t = 0; t < data.TimePeriod; t++) {
-				if(SubCplex.getValue(f.get(sell_node).get(ind)[t])>0 && SubCplex.getValue(f.get(sell_node).get(ind)[t]) > Master.sol_c.get(bss)) 
+				if(SubCplex.getValue(f.get(sell_node).get(ind)[t])>0 && SubCplex.getValue(f.get(sell_node).get(ind)[t]) > Master.sol_c.get(bss)[t]) 
 					System.out.println(Math.round(SubCplex.getValue(f.get(sell_node).get(ind)[t])*100.0)/ 100.0);
 			}
 			System.out.println();
