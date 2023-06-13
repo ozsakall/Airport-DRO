@@ -36,7 +36,7 @@ public class fmodel {
 			for(data.Technology tech : data.all_technologies) {
 				c.put(tech, new IloNumVar[data.totalInvestment]);
 				for(int i = 0; i < data.totalInvestment; i++) {
-					IloColumn column = cplex.column(total_cost, tech.invCost * (i+10));
+					IloColumn column = cplex.column(total_cost, tech.invCost);
 					c.get(tech)[i] = cplex.numVar(column, 0, Double.MAX_VALUE, "c."+tech.name+"."+i);
 				}
 			}
@@ -67,15 +67,15 @@ public class fmodel {
 			data.Node sell_node = data.all_nodes.get(ind );
 			
 			data.Node h2 = data.all_nodes.get(h2_ind);
-			num_expr= (IloLinearNumExpr) (total_cost.getExpr());
+			num_expr = (IloLinearNumExpr) (total_cost.getExpr());
 			for(int t = 0; t < data.TimePeriod; t++) {
 				for(data.Scenario s : data.all_scenarios) {
 					//cost
-					num_expr.addTerm(data.buy_h2, f.get(h2).get(h2.outgoing.get(0))[t][s.id]);
+					num_expr.addTerm(s.probability * data.buy_h2, f.get(h2).get(h2.outgoing.get(0))[t][s.id]);
 					for(Integer out : grid.outgoing)
-						num_expr.addTerm(s.electrictyCost, f.get(grid).get(out)[t][s.id]);
+						num_expr.addTerm(s.probability * s.electrictyCost, f.get(grid).get(out)[t][s.id]);
 					
-					num_expr.addTerm(-data.sell_elec, f.get(sell_node).get(sell_elec.id)[t][s.id]);
+					num_expr.addTerm(-s.probability * data.sell_elec, f.get(sell_node).get(sell_elec.id)[t][s.id]);
 				}
 			}
 			total_cost.setExpr(num_expr);
@@ -226,8 +226,6 @@ public class fmodel {
 					for(int t = 0; t < data.totalInvestment; t++)
 						sol_c.get(tec)[t] = cplex.getValue(tec.c[t]); 
 				}
-				
-
 				write_solution();
 			}
 			else

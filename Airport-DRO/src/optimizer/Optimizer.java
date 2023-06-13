@@ -1,10 +1,10 @@
 package optimizer;
 
+import java.io.PrintWriter;
+
 import data.data;
 import full_model.fmodel;
 import ilog.concert.IloException;
-import ilog.concert.IloLinearNumExpr;
-import ilog.cplex.IloCplex;
 
 public class Optimizer {
 
@@ -21,10 +21,13 @@ public class Optimizer {
 		long mTime = 0;
 		long sTime = 0;
 
-		fmodel.GenModel();
-		fmodel.solve();
+		PrintWriter writer = new PrintWriter("airport_sol.txt", "utf-8");
+		
+		  //fmodel.GenModel(); fmodel.solve();
+		 
 		long startTime = System.nanoTime();  
 		Master.solve(iter);
+		//Master.write_solution(iter);
 		mTime += System.nanoTime() - startTime;
 		System.out.println("Master cpu: "+cpu(mTime));
 		Sub.GenModel();
@@ -41,7 +44,7 @@ public class Optimizer {
 			for(data.Scenario scenario : data.all_scenarios) {
 				long sa = System.nanoTime();
  				Sub.solve(scenario);
-				//Sub.write_solution();
+				//Sub.write_solution(scenario.id);
 				//System.out.println("cpu: "+ cpu(System.nanoTime() - sa));
 				
 			}
@@ -60,12 +63,15 @@ public class Optimizer {
 			//solve master
 			startTime = System.nanoTime();  
 			Master.solve(iter);
+			//Master.write_solution(iter);
+			
 			mTime += System.nanoTime() - startTime;
 			lBound = Master.objValue;
 			
 	 	    if(tUbound < uBound)
 	 	    	uBound = tUbound;
 
+	 	    writer.println("Iteration: "+iter +" UpperBound: "+uBound+" LowerBound: "+lBound+" Gap: "+Math.round(Math.abs((uBound - lBound)/uBound)*1000.00)/1000.00+ " cpu: "+cpu(mTime + sTime));
 			//Master.write_solution(iter);
 	 	    System.err.println("Iteration: "+iter +" UpperBound: "+uBound+" LowerBound: "+lBound+" Gap: "+Math.round(Math.abs((uBound - lBound)/uBound)*1000.00)/1000.00+ " cpu: "+cpu(mTime + sTime));
 		}while(Math.abs((uBound - lBound)/uBound) >= data.eps);
@@ -73,6 +79,10 @@ public class Optimizer {
 		System.err.println("Iteration: " +iter+ " Total cost: "+Math.round(uBound*100.00)/100.00);
 		System.err.println("master cpu: "+cpu(mTime)+" sub cpu: "+cpu(sTime));
 		System.err.println("fmodel: "+fmodel.objValue+" ");
+		writer.println("Iteration: " +iter+ " Total cost: "+Math.round(uBound*100.00)/100.00);
+		writer.println("master cpu: "+cpu(mTime)+" sub cpu: "+cpu(sTime));
+		writer.println("fmodel: "+fmodel.objValue+" ");
+		writer.close();
 	}
 	public Optimizer() {
 		data.DataRead();

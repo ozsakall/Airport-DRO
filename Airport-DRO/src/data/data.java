@@ -15,17 +15,17 @@ public class data {
 	public static List<Demand> all_demands = new ArrayList<Demand>();
 	public static int numTech;
 	public static int numDemad;
-	public static int TimePeriod = 6;
-	public static int investmentPeriod = 4;
+	public static int TimePeriod = 8640*25;
+	public static int investmentPeriod = 8640;
 	public static int totalInvestment;
-	public static int numScenarios = 2;
+	public static int numScenarios = 100;
 	public static double rds = 0.1;
 	public static Map<String, Integer> key_id = new HashMap<String, Integer>();
 	final public static double alpha = 0;
 	final public static double beta = 1;
 	final public static double effc = 1;
-	final public static double eps =  0.001;
-	final public static double sell_elec =  0.0;
+	final public static double eps =  0.0001;
+	final public static double sell_elec =  0.01;
 	final public static double buy_h2 = 50;
 
 	public static class Node{
@@ -182,7 +182,7 @@ public class data {
 				dem.put(d, (dm));
 				ref_dem.put(d, (dm));
 			}
-			Scenario sc = new Scenario(prob, dem, ref_dem, pv, pv, 0.1, 0.1);
+			Scenario sc = new Scenario(prob, dem, ref_dem, pv, pv, 1, 1);
 		}
 	}
 	public static List<Node> getNodes(){

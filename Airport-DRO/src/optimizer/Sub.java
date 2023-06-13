@@ -369,7 +369,7 @@ public class Sub {
 					int ub = (i + 1) * data.investmentPeriod;
 					ub = (ub > data.TimePeriod) ? data.TimePeriod : ub;
 
-					for(int t = lb; t < ub; t++) {
+					for(int t = lb; t < data.TimePeriod; t++) {
 						_beta += SubCplex.getDual(row_capacity.get(tec)[t]);
 						if(tec.name == "solar")
 							_beta += scenario.pvFactor[t] * SubCplex.getDual(row_solar_factor[t]);
@@ -393,16 +393,16 @@ public class Sub {
 			System.err.println("Concert exception caught: " + e);
 		}
 	}
-	public static void write_solution() {
+	public static void write_solution(int s) {
 		try {
-
+			System.err.println("Scenario "+s);
 			for(int t = 0; t < data.TimePeriod; t++) {
 				for(data.Node i : data.all_nodes) {
 				for(Integer ind : i.outgoing) {
 					data.Node j = data.all_nodes.get(ind);
 						if(f.get(i).get(j.id) != null) {
 							if(SubCplex.getValue(f.get(i).get(j.id)[t])>0) 
-								System.out.println(i.name+" to "+j.name+" "+t+" = "+Math.round(SubCplex.getValue(f.get(i).get(j.id)[t])*100.0)/ 100.0);
+								System.out.println("Time: "+t+", "+i.name+" to "+j.name+" = "+Math.round(SubCplex.getValue(f.get(i).get(j.id)[t])*100.0)/ 100.0);
 						}
 					}
 					

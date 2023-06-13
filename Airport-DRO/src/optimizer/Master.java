@@ -30,7 +30,7 @@ public class Master {
 			for(data.Technology tec : data.all_technologies) {
 				tec.c = new IloNumVar[data.totalInvestment];
 				for(int t = 0; t < data.totalInvestment; t++) {
-					IloColumn column = mastcplex.column(total_cost, tec.invCost * (t+10) /* (1/(t+1))*/);
+					IloColumn column = mastcplex.column(total_cost, tec.invCost);
 					tec.c[t] = mastcplex.numVar(column, 0, Double.MAX_VALUE, "c."+tec.name+"."+t);
 				}
 			}
@@ -93,11 +93,11 @@ public class Master {
 		}
 	}
 	public static void write_solution(int iter) {
-		System.out.println();
+		System.err.println("Master");
 		System.out.println("Total Cost:" +getFSOj(iter)+ " theta: "+sol_theta);
 		for (data.Technology tech : data.all_technologies) {
 			for(int t = 0; t < data.totalInvestment; t++)
-				System.out.println(tech.name+"."+t+", Cap: "+ Math.round(sol_c.get(tech)[t]*100.00)/100.00+", Cost: "+ Math.round(tech.invCost*sol_c.get(tech)[t]*100.00)/100.00);
+				System.out.println("Inv.Period: "+t+", "+tech.name+", Capacity: "+ Math.round(sol_c.get(tech)[t]*100.00)/100.00+", Cost: "+ Math.round(tech.invCost*sol_c.get(tech)[t]*100.00)/100.00);
 		}
 			
 		System.out.println();
