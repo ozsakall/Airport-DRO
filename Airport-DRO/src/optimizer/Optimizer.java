@@ -10,6 +10,9 @@ public class Optimizer {
 
 	
 	public void runAlgorithm() throws Exception {
+
+		PrintWriter writer = new PrintWriter("airport_sol.txt", "utf-8");
+		
 		int iter = 0;
 		double lBound = 0, tUbound = 0;
 		double uBound = Double.MAX_VALUE;
@@ -21,7 +24,6 @@ public class Optimizer {
 		long mTime = 0;
 		long sTime = 0;
 
-		PrintWriter writer = new PrintWriter("airport_sol.txt", "utf-8");
 		
 		  //fmodel.GenModel(); fmodel.solve();
 		 
